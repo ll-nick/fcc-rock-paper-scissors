@@ -26,22 +26,23 @@ def player(opponent_prev_play, opponent_history=[]):
         return agent_play
 
     opponent_history.append(opponent_prev_play)
-    opponent_history = opponent_history[-n:]
+    last_state = opponent_history[-n-1:-1]
+    current_state = opponent_history[-n:]
 
-    if len(opponent_history) < n:
+    if len(opponent_history) < n + 1:
         agent_play = np.random.choice(["R", "P", "S"])
         agent_prev_play = agent_play
         return agent_play
 
-    update_q_value(opponent_history, agent_prev_play, reward(opponent_prev_play, agent_prev_play))
+    update_q_value(last_state, agent_prev_play, reward(opponent_prev_play, agent_prev_play))
 
     # Choose an action using an epsilon-greedy policy
     if np.random.random() < epsilon:
         agent_play = np.random.choice(["R", "P", "S"])
     else:
-        state = "".join(play for play in opponent_history)
+        state = "".join(play for play in current_state)
+        q_table.setdefault(state, {"R": 0, "P": 0, "S": 0})
         agent_play = max(q_table[state], key=q_table[state].get)
-
 
     agent_prev_play = agent_play
 
