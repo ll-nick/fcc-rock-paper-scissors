@@ -5,63 +5,75 @@ learning_rate = 0.1
 discount_factor = 0.9
 epsilon = 0.1
 
+# Length of history to consider
+n = 3
+
 # Initialize the Q-table
-q_table = np.zeros((3, 3))
+q_table = {}
 agent_prev_play = ""
-opponent_prev_prev_play = ""
 
 def reset():
     global q_table
-    q_table = np.zeros((3, 3))
-
-play_to_num = {"R": 0, "P": 1, "S": 2}
-num_to_play = {0: "R", 1: "P", 2: "S"}
+    q_table = {}
 
 def player(opponent_prev_play, opponent_history=[]):
-    global q_table, epsilon, agent_prev_play, opponent_prev_prev_play
+    global q_table, epsilon, agent_prev_play
 
     if opponent_prev_play == "":
         reset()
-        agent_play = np.random.choice([0, 1, 2])
-        return num_to_play[agent_play]
-
-    if opponent_prev_prev_play == "":
-        agent_play = np.random.choice([0, 1, 2])
+        agent_play = np.random.choice(["R", "P", "S"])
         agent_prev_play = agent_play
-        opponent_prev_prev_play = play_to_num[opponent_prev_play]
-        return num_to_play[agent_play]
+        return agent_play
 
-    update_q_value(opponent_prev_prev_play, agent_prev_play, reward(play_to_num[opponent_prev_play], agent_prev_play))
+    opponent_history.append(opponent_prev_play)
+    opponent_history = opponent_history[-n:]
 
-    current_state = play_to_num[opponent_prev_play]
+    if len(opponent_history) < n:
+        agent_play = np.random.choice(["R", "P", "S"])
+        agent_prev_play = agent_play
+        return agent_play
+
+    update_q_value(opponent_history, agent_prev_play, reward(opponent_prev_play, agent_prev_play))
 
     # Choose an action using an epsilon-greedy policy
     if np.random.random() < epsilon:
-        agent_play = np.random.choice([0, 1, 2])
+        agent_play = np.random.choice(["R", "P", "S"])
     else:
-        agent_play = np.argmax(q_table[current_state, :])
+        state = "".join(play for play in opponent_history)
+        agent_play = max(q_table[state], key=q_table[state].get)
 
-    opponent_prev_prev_play = play_to_num[opponent_prev_play]
+
     agent_prev_play = agent_play
 
-    return num_to_play[agent_play]
+    return agent_play
 
-def update_q_value(opponent_prev_play, agent_play, reward):
+def update_q_value(opponent_history, agent_play, reward):
     global q_table, learning_rate, discount_factor
 
-    old_q_value = q_table[opponent_prev_play][agent_play]
-    best_next_q_value = np.argmax(q_table[agent_play, :])
-    new_q_value = (1 - learning_rate) * old_q_value + learning_rate * (reward + discount_factor * best_next_q_value)
-    q_table[opponent_prev_play][agent_play] = new_q_value
+    state = "".join(play for play in opponent_history)
+    q_table.setdefault(state, {"R": 0, "P": 0, "S": 0})
+    old_q_value = q_table[state][agent_play]
+    max_q_value = get_max_q_value(state)
+    updated_q_value = (1 - learning_rate) * old_q_value + learning_rate * (reward + discount_factor * max_q_value)
+    q_table[state][agent_play] = updated_q_value
+
+def get_max_q_value(state):
+    global q_table
+    max_q_value = float('-inf')  # Initialize to negative infinity
+    
+    # Iterate through all possible actions in the state's Q-value dictionary
+    for action, q_value in q_table[state].items():
+        if q_value > max_q_value:
+            max_q_value = q_value
+    
+    return max_q_value
 
 def reward(opponent_play, agent_play):
-    agent_play_str = num_to_play[agent_play]
-    opponent_play_str = num_to_play[opponent_play]
-    if agent_play_str == opponent_play_str:
+    if agent_play == opponent_play:
         return 0
-    elif (agent_play_str == "R" and opponent_play_str == "S") or \
-            (agent_play_str == "P" and opponent_play_str == "R") or \
-            (agent_play_str == "S" and opponent_play_str == "P"):
+    elif (agent_play == "R" and opponent_play == "S") or \
+            (agent_play == "P" and opponent_play == "R") or \
+            (agent_play == "S" and opponent_play == "P"):
         return 1
     else:
         return -1
